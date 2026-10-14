@@ -1,0 +1,36 @@
+# Base44 dev environment for "Haikus for Codespaces".
+#
+# This repo is a single-process Node.js app (Express + EJS) with no database and
+# no external services. It runs straight from the cloned source so edits are
+# picked up live by nodemon (polling enabled: bind mounts on Linux microVMs
+# often don't deliver inotify events to the container).
+services:
+  web:
+    image: node:22
+    working_dir: /app
+    command:
+      - sh
+      - -ec
+      - |
+        npm ci --no-audit --no-fund
+        exec npx nodemon --legacy-watch index.js
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      # Pass the platform flag through (bare, never hardcoded) so sandbox-only
+      # behaviour can be gated on BASE44_PREVIEW_MODE === "1".
+      - BASE44_PREVIEW_MODE
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          node -e "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: on-failure
